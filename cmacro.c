@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <sys/resource.h>
 
 #include "/home/james/c/nix.c/nix.h"
 #include "/home/james/c/macros/global_macros.h" // noc
@@ -8,37 +9,39 @@
 
 int main(int argc, char** argv)
 {
+	struct rlimit limit;
 	size_t file_size = nix_sizeof_file(filename);
+	if (!!file_size & (file_size + 1 < getrlimit(RLIMIT_STACK, &limit)))
+		return -1;
 	char buf[file_size + 1];
 	nix_cat(buf, filename, file_size);
-	char *bufPtr = buf;
+	char *bufp = buf;
+	if (unlikely(!(bufp = strstr(bufp, "#define"))))
+		return -1;
+	bufp += strlen("#define ");
+	printf("/\\\\b(");
+	/* printf("/\\<("); */
 	for (;;) {
-		if (likely(bufPtr = strstr(bufPtr, "#define"))) {
-			bufPtr += strlen("#define ");
-			for (;;) {
-				switch (*bufPtr) {
-				default:
-					putchar(*bufPtr++);
-					continue;
-				case '\0':
-					goto EARLY_RET;
-				case '(':
-				case ' ':
-				case '\t':
-				case '\r':
-					if (unlikely(!(bufPtr = strchr(bufPtr, '\n'))))
-						goto EARLY_RET;
-					++bufPtr;
-				case '\n':
-					break;
-				}
+		for (;;) {
+			switch (*bufp) {
+			default:
+				putchar(*bufp++);
+				continue;
+			case '\0':
+				goto END;
+			case '(':
+			case '\n':
+				if (unlikely(!(bufp = strstr(bufp, "#define"))))
+					goto END;
+				bufp += strlen("#define ");
+				printf("\\|");
 				break;
 			}
-			putchar(' ');
-		} else {
 			break;
 		}
 	}
-EARLY_RET:
+END:
+	printf(")\\\\b/");
+	/* printf("\\>\([^[:alnum:]]\\|$\\)/"); */
 	return 0;
 }
